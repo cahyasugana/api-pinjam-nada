@@ -6,16 +6,18 @@ from helper.jwt_helper import get_roles
 
 protected_endpoints = Blueprint('data_protected', __name__)
 
-
 @protected_endpoints.route('/data', methods=['GET'])
 @jwt_required()
 def get_data():
     """
-    Routes for demonstrate protected data endpoints, 
+    Routes for demonstrating protected data endpoints,
     need jwt to visit this endpoint
     """
     current_user = get_jwt_identity()
     roles = get_roles()
-    return jsonify({"message": "OK",
-                    "user_logged": current_user['username'],
-                    "roles": roles}), 200
+    return jsonify({
+        "message": "OK",
+        "user_logged": current_user['user_id'],
+        "username": current_user['username'],
+        "roles": roles
+    }), 200

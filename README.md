@@ -17,6 +17,9 @@ Please clone this project and make sure to follow all instruction below:
 - python-dotenv
 - mysql-connector-python
 - Flask-Cors
+- uuid
+- datetime
+
 
 
 ## Preparation
