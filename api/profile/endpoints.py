@@ -35,18 +35,27 @@ def read_user(user_id):
 def update(user_id):
     """Routes for module to update a user's profile"""
     # Collect optional parameters from the form
-    email = request.form.get('email')
-    full_name = request.form.get('full_name')
-    phone = request.form.get('phone')
+    request_data = request.get_json()
+
+    email = request_data.get('email')
+    full_name = request_data.get('full_name')
+    phone = request_data.get('phone')
     uploaded_file = request.files.get('profile_picture')
 
+
+    # print(email)
+    # print(full_name)
+    # print(phone)
+    # return jsonify({"message": "OK", "data": email}), 200
+
+    
     # Check if at least one field is provided for update
     if not any([email, full_name, phone, uploaded_file]):
         return jsonify({"message": "No fields provided for update."}), 400
 
     fields_to_update = []
     values_to_update = []
-
+  
     if email:
         fields_to_update.append("email=%s")
         values_to_update.append(email)

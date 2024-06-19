@@ -60,9 +60,10 @@ def update_instrument(instrument_id):
     location = request.form.get('location')
     instrument_type_id = request.form.get('instrument_type_id')
     uploaded_file = request.files.get('image')
-
+    availability_status = request.form.get('availability_status')
+    print("tEst")
     # Check if at least one field is provided for update
-    if not any([instrument_name, description, location, instrument_type_id, uploaded_file]):
+    if not any([instrument_name, description, location, instrument_type_id, uploaded_file, availability_status]):
         return jsonify({"message": "No fields provided for update."}), 400
 
     fields_to_update = []
@@ -80,6 +81,9 @@ def update_instrument(instrument_id):
     if instrument_type_id:
         fields_to_update.append("instrument_type_id=%s")
         values_to_update.append(instrument_type_id)
+    if availability_status:
+        fields_to_update.append("availability_status=%s")
+        values_to_update.append(availability_status)
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -163,6 +167,7 @@ def delete_instrument(instrument_id):
     else:
         return jsonify({"message": "Failed to delete instrument."}), 500
 
+
 @instruments_endpoints.route('/read_instruments_by_user/<int:user_id>', methods=['GET'])
 def read_instruments_by_user(user_id):
     """Route to read instruments based on user_id."""
@@ -220,61 +225,36 @@ def read_instruments_by_user(user_id):
         return jsonify({"message": "No instruments found for the user."}), 404
 
 @instruments_endpoints.route('/read_instruments_by_availability_excluding_user/<int:exclude_user_id>', methods=['GET'])
-@instruments_endpoints.route('/read_instruments_by_availability_excluding_user', methods=['GET'])
-def read_instruments_by_availability_excluding_user(exclude_user_id=None):
-    """Route to read instruments based on availability status, excluding instruments of a specified user."""
+def read_instruments_by_availability_excluding_user(exclude_user_id):
+    """Route to read instruments based on availability status, excluding instruments of a specified user and those already requested by that user."""
 
     connection = get_connection()
     cursor = connection.cursor()
 
-    if exclude_user_id is None:
-        # Handle case where exclude_user_id is not provided
-        query = """
-            SELECT 
-                i.instrument_id, 
-                i.owner_id, 
-                u.username AS owner_username,
-                i.instrument_name, 
-                i.description, 
-                i.location, 
-                i.availability_status, 
-                i.image, 
-                i.instrument_type_id, 
-                it.name AS instrument_type,
-                COALESCE(AVG(r.rating), 0) AS average_rating
-            FROM instruments i
-            JOIN instrument_type it ON i.instrument_type_id = it.id
-            LEFT JOIN reviews r ON i.instrument_id = r.instrument_id
-            JOIN users u ON i.owner_id = u.user_id
-            WHERE i.availability_status = 1
-            GROUP BY i.instrument_id, i.owner_id, u.username, i.instrument_name, i.description, 
-                     i.location, i.availability_status, i.image, i.instrument_type_id, it.name
-        """
-        cursor.execute(query)
-    else:
-        # Handle case where exclude_user_id is provided
-        query = """
-            SELECT 
-                i.instrument_id, 
-                i.owner_id, 
-                u.username AS owner_username,
-                i.instrument_name, 
-                i.description, 
-                i.location, 
-                i.availability_status, 
-                i.image, 
-                i.instrument_type_id, 
-                it.name AS instrument_type,
-                COALESCE(AVG(r.rating), 0) AS average_rating
-            FROM instruments i
-            JOIN instrument_type it ON i.instrument_type_id = it.id
-            LEFT JOIN reviews r ON i.instrument_id = r.instrument_id
-            JOIN users u ON i.owner_id = u.user_id
-            WHERE i.availability_status = 1 AND i.owner_id != %s
-            GROUP BY i.instrument_id, i.owner_id, u.username, i.instrument_name, i.description, 
-                     i.location, i.availability_status, i.image, i.instrument_type_id, it.name
-        """
-        cursor.execute(query, (exclude_user_id,))
+    query = """
+        SELECT 
+            i.instrument_id, 
+            i.owner_id, 
+            u.username AS owner_username,
+            i.instrument_name, 
+            i.description, 
+            i.location, 
+            i.availability_status, 
+            i.image, 
+            i.instrument_type_id, 
+            it.name AS instrument_type,
+            COALESCE(AVG(r.rating), 0) AS average_rating
+        FROM instruments i
+        JOIN instrument_type it ON i.instrument_type_id = it.id
+        LEFT JOIN reviews r ON i.instrument_id = r.instrument_id
+        JOIN users u ON i.owner_id = u.user_id
+        LEFT JOIN loanrequests lr ON i.instrument_id = lr.instrument_id AND lr.requester_id = %s
+        WHERE i.availability_status IN (1, 2) AND i.owner_id != %s
+        AND lr.instrument_id IS NULL
+        GROUP BY i.instrument_id, i.owner_id, u.username, i.instrument_name, i.description, 
+                 i.location, i.availability_status, i.image, i.instrument_type_id, it.name
+    """
+    cursor.execute(query, (exclude_user_id, exclude_user_id))
 
     instruments_data = cursor.fetchall()
 
